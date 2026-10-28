@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CartItem, DropZone, Order } from '../../types/uniDds';
+import { StudentUser } from '../../types/auth';
 import { CAMPUS_DINING_SPOTS } from '../../data/campusData';
 import {
   X,
@@ -10,7 +11,9 @@ import {
   CheckCircle2,
   MapPin,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  User,
+  Lock
 } from 'lucide-react';
 
 interface CartDrawerProps {
@@ -22,6 +25,8 @@ interface CartDrawerProps {
   onRemoveItem: (cartItemId: string) => void;
   onClearCart: () => void;
   onPlaceOrder: (order: Order) => void;
+  currentUser: StudentUser | null;
+  onPromptLogin: () => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -32,7 +37,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
-  onPlaceOrder
+  onPlaceOrder,
+  currentUser,
+  onPromptLogin
 }) => {
   const [paymentMethod, setPaymentMethod] = useState<
     'Campus Meal Plan' | 'Dining Dollars' | 'Credit Card' | 'Apple Pay'
@@ -41,11 +48,28 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [studentId, setStudentId] = useState<string>('U-9021849');
   const [studentName, setStudentName] = useState<string>('Alex Chen');
 
+  useEffect(() => {
+    if (currentUser) {
+      setStudentName(currentUser.fullName);
+      setStudentId(currentUser.studentIdNumber);
+      if (currentUser.mealPlanType === 'Dining Dollars Only') {
+        setPaymentMethod('Dining Dollars');
+      } else if (currentUser.mealPlanType === 'None (Card Only)') {
+        setPaymentMethod('Credit Card');
+      } else {
+        setPaymentMethod('Campus Meal Plan');
+      }
+    }
+  }, [currentUser]);
+
   if (!isOpen) return null;
 
   // Calculations
   const foodSubtotal = cart.reduce((acc, item) => acc + item.totalItemPrice, 0);
-  const mealPlanDiscount = paymentMethod === 'Campus Meal Plan' ? foodSubtotal * 0.10 : 0;
+  const mealPlanDiscount =
+    paymentMethod === 'Campus Meal Plan' || paymentMethod === 'Dining Dollars'
+      ? foodSubtotal * 0.10
+      : 0;
   const droneFlightFee = cart.length > 0 ? 2.49 : 0;
   const campusServiceFee = cart.length > 0 ? 0.99 : 0;
   const grandTotal = Math.max(0, foodSubtotal - mealPlanDiscount + droneFlightFee + campusServiceFee + tip);
@@ -53,14 +77,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
+    // Protection requirement: student must be logged in to launch drone flight
+    if (!currentUser) {
+      onPromptLogin();
+      return;
+    }
+
     // Pick first dining spot from cart items
     const diningSpot =
       CAMPUS_DINING_SPOTS.find((s) => s.id === cart[0].diningSpotId) || CAMPUS_DINING_SPOTS[0];
 
     const newOrder: Order = {
       id: `DDS-${Math.floor(1000 + Math.random() * 9000)}`,
-      studentName: studentName.trim() || 'Student Explorer',
-      studentIdNumber: studentId.trim() || 'U-9021849',
+      studentName: currentUser.fullName,
+      studentIdNumber: currentUser.studentIdNumber,
       diningSpot,
       items: [...cart],
       dropZone: selectedDropZone,
@@ -122,6 +152,45 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
         {/* Cart Items List */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+          {/* User Auth Protection Banner */}
+          {!currentUser ? (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-900 text-xs flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-amber-600" /> Protected Student Flight
+                </span>
+                <span className="text-[10px] text-amber-700 font-mono">CAS Required</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Sign in with your University ID to verify landing pad clearance, apply meal plan discounts, and protect your delivery.
+              </p>
+              <button
+                type="button"
+                onClick={onPromptLogin}
+                className="cursor-pointer w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition-colors"
+              >
+                Sign In / Student Register
+              </button>
+            </div>
+          ) : (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <div className="font-bold text-emerald-950">
+                    {currentUser.fullName} ({currentUser.studentIdNumber})
+                  </div>
+                  <div className="text-[10px] text-emerald-700">
+                    Meal Plan: {currentUser.mealPlanType} · ${currentUser.diningDollarsBalance.toFixed(2)} Dining $
+                  </div>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded">
+                VERIFIED
+              </span>
+            </div>
+          )}
+
           {cart.length === 0 ? (
             <div className="text-center py-16 text-slate-400 space-y-3">
               <Plane className="w-10 h-10 text-slate-300 mx-auto" />
@@ -266,34 +335,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Student ID input if meal plan */}
-              {(paymentMethod === 'Campus Meal Plan' || paymentMethod === 'Dining Dollars') && (
-                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
-                      Student Name
-                    </label>
-                    <input
-                      type="text"
-                      value={studentName}
-                      onChange={(e) => setStudentName(e.target.value)}
-                      className="w-full p-1.5 text-xs bg-white border border-slate-200 rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
-                      Campus ID #
-                    </label>
-                    <input
-                      type="text"
-                      value={studentId}
-                      onChange={(e) => setStudentId(e.target.value)}
-                      className="w-full p-1.5 text-xs bg-white border border-slate-200 rounded font-mono"
-                    />
-                  </div>
-                </div>
-              )}
-
               {/* Flight Crew Tip */}
               <div className="space-y-1.5">
                 <span className="font-bold text-slate-800 block text-xs">
@@ -371,7 +412,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           >
             <span className="flex items-center gap-2">
               <Plane className="w-4 h-4 text-amber-400" />
-              <span>Authorize Drone Flight Launch</span>
+              <span>
+                {!currentUser ? 'Sign In to Authorize Flight' : 'Authorize Drone Flight Launch'}
+              </span>
             </span>
             <span className="font-mono tabular-numbers text-amber-400">
               ${grandTotal.toFixed(2)}

@@ -1,6 +1,18 @@
-import React from 'react';
-import { ShoppingBag, Plane, UtensilsCrossed, Radio, Clock, ShieldCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  ShoppingBag,
+  Plane,
+  UtensilsCrossed,
+  Radio,
+  Clock,
+  ShieldCheck,
+  User,
+  LogOut,
+  ChevronDown,
+  Sparkles
+} from 'lucide-react';
 import { DropZone, CartItem } from '../../types/uniDds';
+import { StudentUser } from '../../types/auth';
 
 interface UniHeaderProps {
   currentTab: 'order' | 'kitchen' | 'flight_ops' | 'tracking';
@@ -10,6 +22,9 @@ interface UniHeaderProps {
   cart: CartItem[];
   onOpenCart: () => void;
   hasActiveOrder: boolean;
+  currentUser: StudentUser | null;
+  onOpenAuth: () => void;
+  onSignOut: () => void;
 }
 
 export const UniHeader: React.FC<UniHeaderProps> = ({
@@ -19,8 +34,12 @@ export const UniHeader: React.FC<UniHeaderProps> = ({
   onOpenDropZoneSelector,
   cart,
   onOpenCart,
-  hasActiveOrder
+  hasActiveOrder,
+  currentUser,
+  onOpenAuth,
+  onSignOut
 }) => {
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
@@ -101,20 +120,100 @@ export const UniHeader: React.FC<UniHeaderProps> = ({
             </button>
           </nav>
 
-          {/* Zone 3: 1 primary action & landing pad selector */}
+          {/* Zone 3: Authentication, Drop Pad, Cart */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Campus Drop Zone Selector */}
             <button
               onClick={onOpenDropZoneSelector}
-              className="cursor-pointer hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-lg text-slate-200 transition-colors"
+              className="cursor-pointer hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-lg text-slate-200 transition-colors"
               title="Change drone landing pad"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               <span className="text-slate-400">Pad:</span>
-              <span className="font-semibold text-white truncate max-w-[140px]">
+              <span className="font-semibold text-white truncate max-w-[120px]">
                 {selectedDropZone.code}
               </span>
             </button>
+
+            {/* User Account / Sign In State */}
+            {currentUser ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="cursor-pointer flex items-center gap-2 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg text-xs transition-colors"
+                >
+                  <div className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-bold flex items-center justify-center text-[10px]">
+                    {currentUser.fullName.charAt(0)}
+                  </div>
+                  <div className="text-left hidden sm:block">
+                    <div className="font-bold text-white text-[11px] truncate max-w-[100px]">
+                      {currentUser.fullName}
+                    </div>
+                    <div className="text-[9px] text-emerald-400 font-mono">
+                      ${currentUser.diningDollarsBalance.toFixed(2)}
+                    </div>
+                  </div>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+
+                {/* Profile Dropdown */}
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white text-slate-900 rounded-xl shadow-xl border border-slate-200 py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-4 py-2 border-b border-slate-100">
+                      <div className="font-bold text-sm text-slate-900">{currentUser.fullName}</div>
+                      <div className="text-[11px] text-slate-500 font-mono">{currentUser.studentIdNumber}</div>
+                      <div className="text-[11px] text-slate-600 truncate mt-0.5">{currentUser.email}</div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 border-b border-slate-100 space-y-1 text-[11px]">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Meal Plan:</span>
+                        <span className="font-semibold text-slate-800">{currentUser.mealPlanType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Dining Dollars:</span>
+                        <span className="font-mono font-bold text-emerald-700">
+                          ${currentUser.diningDollarsBalance.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Weekly Swipes:</span>
+                        <span className="font-mono font-bold text-slate-800">
+                          {currentUser.mealSwipesRemaining}
+                        </span>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-slate-200/60">
+                        <span className="text-slate-500">Campus Residence:</span>
+                        <span className="font-medium text-slate-700 truncate max-w-[130px]">
+                          {currentUser.campusDormOrBuilding}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-1">
+                      <button
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onSignOut();
+                        }}
+                        className="cursor-pointer w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-2 transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out of Campus SSO</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors whitespace-nowrap"
+              >
+                <User className="w-3.5 h-3.5 text-amber-400" />
+                <span>Student Sign In</span>
+              </button>
+            )}
 
             {/* Cart Trigger Button */}
             <button

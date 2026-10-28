@@ -6,6 +6,7 @@ import {
   Order,
   OrderFlightStatus
 } from './types/uniDds';
+import { StudentUser, DEMO_USERS } from './types/auth';
 import { CAMPUS_DROP_ZONES, CAMPUS_DINING_SPOTS } from './data/campusData';
 import { UniHeader } from './components/uni_dds/UniHeader';
 import { CustomerView } from './components/uni_dds/CustomerView';
@@ -14,12 +15,25 @@ import { LiveFlightTracker } from './components/uni_dds/LiveFlightTracker';
 import { KitchenKDS } from './components/uni_dds/KitchenKDS';
 import { FlightOpsRadar } from './components/uni_dds/FlightOpsRadar';
 import { DropZoneModal } from './components/uni_dds/DropZoneModal';
+import { AuthModal } from './components/uni_dds/AuthModal';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<'order' | 'kitchen' | 'flight_ops' | 'tracking'>('order');
   const [selectedDropZone, setSelectedDropZone] = useState<DropZone>(CAMPUS_DROP_ZONES[0]);
   const [isDropZoneModalOpen, setIsDropZoneModalOpen] = useState<boolean>(false);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
+
+  // Authentication State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
+  const [currentUser, setCurrentUser] = useState<StudentUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('uni_dds_user');
+      return saved ? JSON.parse(saved) : DEMO_USERS[0]; // Default to Alex Chen for instant convenience
+    } catch {
+      return DEMO_USERS[0];
+    }
+  });
 
   // Cart state
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -114,10 +128,37 @@ export default function App() {
     }
   }, [cart]);
 
+  // Persist user
+  useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem('uni_dds_user', JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem('uni_dds_user');
+      }
+    } catch (e) {
+      console.error('Failed to save user session:', e);
+    }
+  }, [currentUser]);
+
+  // Auth Operations
+  const handleLoginSuccess = (user: StudentUser) => {
+    setCurrentUser(user);
+    setIsAuthModalOpen(false);
+  };
+
+  const handleSignOut = () => {
+    setCurrentUser(null);
+  };
+
+  const handleOpenAuth = (mode: 'login' | 'signup' = 'login') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
   // Cart operations
   const handleAddToCart = (newItem: CartItem) => {
     setCart((prev) => {
-      // If same dish with exact same options exists, increment
       const existingIdx = prev.findIndex(
         (it) =>
           it.menuItem.id === newItem.menuItem.id &&
@@ -184,8 +225,8 @@ export default function App() {
     const spot = CAMPUS_DINING_SPOTS[1]; // Wok lab
     const ramenOrder: Order = {
       id: `DDS-${Math.floor(1000 + Math.random() * 9000)}`,
-      studentName: 'Alex Chen',
-      studentIdNumber: 'U-9021849',
+      studentName: currentUser ? currentUser.fullName : 'Alex Chen',
+      studentIdNumber: currentUser ? currentUser.studentIdNumber : 'U-9021849',
       diningSpot: spot,
       items: [
         {
@@ -249,6 +290,9 @@ export default function App() {
         cart={cart}
         onOpenCart={() => setIsCartOpen(true)}
         hasActiveOrder={!!activeOrder && activeOrder.status !== 'delivered'}
+        currentUser={currentUser}
+        onOpenAuth={() => handleOpenAuth('login')}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Viewport Container */}
@@ -323,6 +367,21 @@ export default function App() {
             >
               Airspace Ops
             </button>
+            {!currentUser ? (
+              <button
+                onClick={() => handleOpenAuth('login')}
+                className="cursor-pointer text-amber-400 hover:text-amber-300 font-bold transition-colors"
+              >
+                Sign In
+              </button>
+            ) : (
+              <button
+                onClick={handleSignOut}
+                className="cursor-pointer hover:text-rose-400 transition-colors"
+              >
+                Sign Out ({currentUser.fullName.split(' ')[0]})
+              </button>
+            )}
           </div>
         </div>
       </footer>
@@ -337,6 +396,11 @@ export default function App() {
         onRemoveItem={handleRemoveItem}
         onClearCart={handleClearCart}
         onPlaceOrder={handlePlaceOrder}
+        currentUser={currentUser}
+        onPromptLogin={() => {
+          setIsCartOpen(false);
+          handleOpenAuth('login');
+        }}
       />
 
       {/* Campus Landing Pad Modal */}
@@ -345,6 +409,14 @@ export default function App() {
         onClose={() => setIsDropZoneModalOpen(false)}
         selectedZone={selectedDropZone}
         onSelectZone={(zone) => setSelectedDropZone(zone)}
+      />
+
+      {/* Campus Student Login & Registration Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        initialMode={authModalMode}
       />
     </div>
   );
