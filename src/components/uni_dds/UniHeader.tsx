@@ -9,14 +9,15 @@ import {
   User,
   LogOut,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  History
 } from 'lucide-react';
 import { DropZone, CartItem } from '../../types/uniDds';
 import { StudentUser } from '../../types/auth';
 
 interface UniHeaderProps {
-  currentTab: 'order' | 'kitchen' | 'flight_ops' | 'tracking';
-  setCurrentTab: (tab: 'order' | 'kitchen' | 'flight_ops' | 'tracking') => void;
+  currentTab: 'order' | 'kitchen' | 'flight_ops' | 'tracking' | 'history';
+  setCurrentTab: (tab: 'order' | 'kitchen' | 'flight_ops' | 'tracking' | 'history') => void;
   selectedDropZone: DropZone;
   onOpenDropZoneSelector: () => void;
   cart: CartItem[];
@@ -118,6 +119,18 @@ export const UniHeader: React.FC<UniHeaderProps> = ({
               <Radio className="w-3.5 h-3.5 text-sky-400" />
               <span>Drone Flight Ops</span>
             </button>
+
+            <button
+              onClick={() => setCurrentTab('history')}
+              className={`cursor-pointer whitespace-nowrap py-1 transition-colors flex items-center gap-1.5 ${
+                currentTab === 'history'
+                  ? 'text-amber-400 font-bold border-b-2 border-amber-400'
+                  : 'hover:text-white'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>Past Orders</span>
+            </button>
           </nav>
 
           {/* Zone 3: Authentication, Drop Pad, Cart */}
@@ -194,6 +207,16 @@ export const UniHeader: React.FC<UniHeaderProps> = ({
                       <button
                         onClick={() => {
                           setIsProfileMenuOpen(false);
+                          setCurrentTab('history');
+                        }}
+                        className="cursor-pointer w-full text-left px-4 py-2 text-slate-700 hover:bg-slate-100 font-semibold flex items-center gap-2 transition-colors border-b border-slate-100"
+                      >
+                        <History className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Past 10 Orders & Receipts</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
                           onSignOut();
                         }}
                         className="cursor-pointer w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-2 transition-colors"
@@ -246,6 +269,14 @@ export const UniHeader: React.FC<UniHeaderProps> = ({
             }`}
           >
             Flight Tracker {hasActiveOrder && '•'}
+          </button>
+          <button
+            onClick={() => setCurrentTab('history')}
+            className={`px-3 py-1 whitespace-nowrap rounded font-medium ${
+              currentTab === 'history' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+            }`}
+          >
+            Past Orders
           </button>
           <button
             onClick={() => setCurrentTab('kitchen')}

@@ -16,9 +16,11 @@ import { KitchenKDS } from './components/uni_dds/KitchenKDS';
 import { FlightOpsRadar } from './components/uni_dds/FlightOpsRadar';
 import { DropZoneModal } from './components/uni_dds/DropZoneModal';
 import { AuthModal } from './components/uni_dds/AuthModal';
+import { OrderHistory } from './components/uni_dds/OrderHistory';
+import { getPast10StudentOrders } from './data/mockOrderHistory';
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<'order' | 'kitchen' | 'flight_ops' | 'tracking'>('order');
+  const [currentTab, setCurrentTab] = useState<'order' | 'kitchen' | 'flight_ops' | 'tracking' | 'history'>('order');
   const [selectedDropZone, setSelectedDropZone] = useState<DropZone>(CAMPUS_DROP_ZONES[0]);
   const [isDropZoneModalOpen, setIsDropZoneModalOpen] = useState<boolean>(false);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
@@ -154,6 +156,35 @@ export default function App() {
   const handleOpenAuth = (mode: 'login' | 'signup' = 'login') => {
     setAuthModalMode(mode);
     setIsAuthModalOpen(true);
+  };
+
+  // Past 10 orders state for the currently logged in student
+  const [pastStudentOrders, setPastStudentOrders] = useState<Order[]>(() => {
+    return getPast10StudentOrders(
+      currentUser ? currentUser.fullName : 'Alex Chen',
+      currentUser ? currentUser.studentIdNumber : 'U-9021849'
+    );
+  });
+
+  useEffect(() => {
+    if (currentUser) {
+      setPastStudentOrders(
+        getPast10StudentOrders(currentUser.fullName, currentUser.studentIdNumber)
+      );
+    } else {
+      setPastStudentOrders([]);
+    }
+  }, [currentUser]);
+
+  // Reorder operation: populate exact items and modifiers into the cart and open cart drawer
+  const handleReorder = (order: Order) => {
+    order.items.forEach((item) => {
+      handleAddToCart({
+        ...item,
+        id: `${item.menuItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+      });
+    });
+    setIsCartOpen(true);
   };
 
   // Cart operations
@@ -329,6 +360,18 @@ export default function App() {
         )}
 
         {currentTab === 'flight_ops' && <FlightOpsRadar />}
+
+        {currentTab === 'history' && (
+          <OrderHistory
+            currentUser={currentUser}
+            pastOrders={pastStudentOrders}
+            onReorder={handleReorder}
+            onOpenAuth={() => handleOpenAuth('login')}
+            onViewOrderDetails={(ord) => {
+              setCurrentTab('tracking');
+            }}
+          />
+        )}
       </main>
 
       {/* Clean Footer */}
@@ -366,6 +409,12 @@ export default function App() {
               className="cursor-pointer hover:text-white transition-colors"
             >
               Airspace Ops
+            </button>
+            <button
+              onClick={() => setCurrentTab('history')}
+              className="cursor-pointer hover:text-white transition-colors"
+            >
+              Order History
             </button>
             {!currentUser ? (
               <button
